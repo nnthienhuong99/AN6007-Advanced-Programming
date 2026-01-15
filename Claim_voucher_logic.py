@@ -1,3 +1,6 @@
+'''
+The business logic for "how to claim coupons" is defined, such as checking eligibility, allocating coupons, and updating the balance.
+'''
 import json
 import os
 from datetime import datetime
@@ -177,4 +180,5 @@ class VoucherClaimService:
                 )
             }
         
+
         return status
