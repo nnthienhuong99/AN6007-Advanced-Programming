@@ -1,3 +1,6 @@
+'''
+This defines which URL corresponds to which function, and forwards user requests to logic.py for processing.
+'''
 from flask import Blueprint, request, jsonify, render_template
 from .logic import VoucherClaimService
 
@@ -72,4 +75,5 @@ def voucher_dashboard(household_id):
     
     return render_template('claim_voucher.html', 
                          household_id=household_id,
+
                          status=status)
