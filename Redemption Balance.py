@@ -3,30 +3,30 @@ from typing import Dict, Optional
 import json
 from datetime import datetime
 
-# 使用之前定义的核心类
+# Use the previously defined core classes
 from cdc_classes import Household, CDCSystem, DataPersistenceManager
 
 app = Flask(__name__)
 
-# 初始化CDC系统
+# Initialize CDC system
 cdc_system = CDCSystem()
 
 @app.route('/api/households/<household_id>/balance', methods=['GET'])
 def get_redemption_balance(household_id: str):
     """
-    提取家庭兑换余额API
-    对应文档要求：d. Extracting Redemption Balance
-    实现快速查询家庭代金券余额功能
+    API for retrieving household redemption balance
+    Corresponds to document requirement: d. Extracting Redemption Balance
+    Implements fast query for household voucher balance functionality
     """
     try:
-        # 使用快速查询索引实现O(1)时间复杂度查询
+        # Use fast query index to achieve O(1) time complexity query
         if household_id not in cdc_system.household_balance_index:
             return jsonify({
                 "error": "Household not found",
                 "household_id": household_id
             }), 404
         
-        # 获取余额信息
+        # Get balance information
         balance_info = cdc_system.get_household_balance(household_id)
         
         if not balance_info:
@@ -35,7 +35,7 @@ def get_redemption_balance(household_id: str):
                 "household_id": household_id
             }), 500
         
-        # 构建响应数据
+        # Construct response data
         response_data = {
             "household_id": household_id,
             "total_balance": balance_info["total"],
@@ -44,7 +44,7 @@ def get_redemption_balance(household_id: str):
             "status": "success"
         }
         
-        # 记录查询日志（用于数据分析）
+        # Log query (for data analysis)
         log_balance_query(household_id, balance_info["total"])
         
         return jsonify(response_data)
@@ -58,8 +58,8 @@ def get_redemption_balance(household_id: str):
 @app.route('/api/households/balance/batch', methods=['POST'])
 def get_batch_balances():
     """
-    批量查询多个家庭余额API
-    支持移动应用一次获取多个家庭的余额信息
+    Batch query API for multiple household balances
+    Supports mobile applications retrieving balances for multiple households at once
     """
     try:
         data = request.get_json()
@@ -92,8 +92,8 @@ def get_batch_balances():
 @app.route('/api/households/<household_id>/balance/breakdown', methods=['GET'])
 def get_detailed_balance(household_id: str):
     """
-    获取详细余额分解API
-    包括按批次和面值的详细分解，用于移动应用显示
+    API for retrieving detailed balance breakdown
+    Includes detailed breakdown by batch and denomination, for mobile application display
     """
     try:
         if household_id not in cdc_system.households:
@@ -101,14 +101,14 @@ def get_detailed_balance(household_id: str):
         
         household = cdc_system.households[household_id]
         
-        # 构建详细的余额分解
+        # Build detailed balance breakdown
         detailed_breakdown = {
             "by_tranche": {},
             "by_denomination": {2.0: 0, 5.0: 0, 10.0: 0},
             "voucher_details": []
         }
         
-        # 按批次统计
+        # Statistics by batch
         for tranche, vouchers in household.vouchers.items():
             active_vouchers = [v for v in vouchers if v.status == "active"]
             if active_vouchers:
@@ -122,7 +122,7 @@ def get_detailed_balance(household_id: str):
                     }
                 }
         
-        # 按面值统计
+        # Statistics by denomination
         for tranche_vouchers in household.vouchers.values():
             for voucher in tranche_vouchers:
                 if voucher.status == "active":
@@ -148,8 +148,8 @@ def get_detailed_balance(household_id: str):
 
 def log_balance_query(household_id: str, balance: float):
     """
-    记录余额查询日志，用于数据分析仪表板
-    符合文档要求：5. A simple relevant dashboard for any 1 stakeholder
+    Log balance queries for data analysis dashboard
+    Complies with document requirement: 5. A simple relevant dashboard for any 1 stakeholder
     """
     log_entry = {
         "household_id": household_id,
@@ -158,7 +158,7 @@ def log_balance_query(household_id: str, balance: float):
         "query_type": "balance_inquiry"
     }
     
-    # 保存到查询日志文件
+    # Save to query log file
     try:
         with open("balance_query_log.json", "a") as f:
             f.write(json.dumps(log_entry) + "\n")
@@ -168,7 +168,7 @@ def log_balance_query(household_id: str, balance: float):
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """
-    健康检查端点，验证系统状态和数据完整性
+    Health check endpoint, verifies system status and data integrity
     """
     try:
         total_households = len(cdc_system.households)
@@ -179,13 +179,13 @@ def health_check():
             "total_households": total_households,
             "index_size": len(total_balance_queries),
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "memory_usage": "optimal"  # 实际实现中可以添加内存使用监控
+            "memory_usage": "optimal"  # Actual implementation could add memory usage monitoring
         })
     except Exception as e:
         return jsonify({"status": "unhealthy", "error": str(e)}), 500
 
-# 服务器启动时加载数据
-# 添加一个全局标志
+# Load data when server starts
+# Add a global flag
 _first_request_loaded = False
 
 @app.before_request
@@ -193,7 +193,7 @@ def load_initial_data():
     global _first_request_loaded
     if not _first_request_loaded:
         try:
-            # 这里放置您原来的初始化代码
+            # Place your original initialization code here
             households = DataPersistenceManager.load_households("households.json")
             cdc_system.households.update(households)
             
@@ -207,5 +207,5 @@ def load_initial_data():
             print(f"Error loading initial data: {e}")
 
 if __name__ == '__main__':
-    # 启动Flask服务器
+    # Start Flask server
     app.run(host='0.0.0.0', port=5000, debug=True)
