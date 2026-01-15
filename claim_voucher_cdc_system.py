@@ -1,5 +1,5 @@
 """
-CDC Voucher Management System - Complete English Version
+CDC Voucher Management System
 Contains: Business logic + Web routes + HTML template + Startup code
 """
 
@@ -468,4 +468,5 @@ if __name__ == '__main__':
     service.create_test_household("H002")
     
     # Start Flask server
+
     app.run(debug=True, port=5000)
