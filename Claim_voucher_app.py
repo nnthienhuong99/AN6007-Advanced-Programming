@@ -1,5 +1,5 @@
 '''
-Receive Claim coupon request. This defines which URL corresponds to which function, and forwards user requests to logic.py for processing.
+Receive request. Launching the entire website serves as the entry point for all access.
 '''
 from flask import Flask
 from claim_voucher.routes import bp as voucher_bp
@@ -18,3 +18,4 @@ def home():
 if __name__ == '__main__':
 
     app.run(debug=True, port=5000)
+
