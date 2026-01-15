@@ -1,5 +1,5 @@
 '''
-The business logic for "how to claim coupons" is defined, such as checking eligibility, allocating coupons, and updating the balance.
+Calculate balance, check status. The business logic for "how to claim coupons" is defined, such as checking eligibility, allocating coupons, and updating the balance.
 '''
 import json
 import os
@@ -182,3 +182,4 @@ class VoucherClaimService:
         
 
         return status
+
