@@ -1,0 +1,284 @@
+"""
+CDC Voucher Claim System
+"""
+
+import json
+import os
+from datetime import datetime
+
+# ============ VOUCHER CONFIGURATION ============
+VOUCHER_CONFIG = {
+    "May2025": {
+        "total_value": 500,
+        "distribution": {
+            "2": 50,   # $2 vouchers: 50 pieces
+            "5": 20,   # $5 vouchers: 20 pieces
+            "10": 30   # $10 vouchers: 30 pieces
+        }
+    },
+    "Jan2026": {
+        "total_value": 300,
+        "distribution": {
+            "2": 30,   # $2 vouchers: 30 pieces
+            "5": 12,   # $5 vouchers: 12 pieces
+            "10": 15   # $10 vouchers: 15 pieces
+        }
+    }
+}
+
+class VoucherClaimService:
+    """Voucher Claim Service"""
+    
+    def __init__(self, data_dir="data"):
+        self.data_dir = data_dir
+        self.households_file = os.path.join(data_dir, "households.json")
+        self._initialize_files()
+    
+    def _initialize_files(self):
+        """Initialize data files"""
+        if not os.path.exists(self.data_dir):
+            os.makedirs(self.data_dir)
+        
+        # Initialize household data file
+        if not os.path.exists(self.households_file):
+            initial_data = {"households": {}}
+            with open(self.households_file, 'w') as f:
+                json.dump(initial_data, f, indent=2)
+    
+    def load_households(self):
+        """Load household data"""
+        with open(self.households_file, 'r') as f:
+            return json.load(f)
+    
+    def save_households(self, data):
+        """Save household data"""
+        with open(self.households_file, 'w') as f:
+            json.dump(data, f, indent=2)
+    
+    def claim_vouchers(self, household_id, tranche):
+        """
+        Claim vouchers for a household for a specific tranche
+        
+        Parameters:
+            household_id: Household ID
+            tranche: Batch ("May2025" or "Jan2026")
+        
+        Returns:
+            (success, message, new_balance)
+        """
+        # Check if tranche is valid
+        if tranche not in VOUCHER_CONFIG:
+            return False, f"Invalid tranche: {tranche}", None
+        
+        # Load household data
+        data = self.load_households()
+        
+        # Check if household exists
+        if household_id not in data["households"]:
+            return False, f"Household {household_id} does not exist, please register first", None
+        
+        household = data["households"][household_id]
+        
+        # Check if already claimed this tranche
+        if household["vouchers"][tranche]["claimed"]:
+            return False, f"You have already claimed the {tranche} batch vouchers", None
+        
+        # Distribute vouchers
+        distribution = VOUCHER_CONFIG[tranche]["distribution"]
+        
+        # Update voucher counts
+        household["vouchers"][tranche]["details"]["2"] += distribution["2"]
+        household["vouchers"][tranche]["details"]["5"] += distribution["5"]
+        household["vouchers"][tranche]["details"]["10"] += distribution["10"]
+        
+        # Mark as claimed and record grant date
+        household["vouchers"][tranche]["claimed"] = True
+        household["vouchers"][tranche]["grant_date"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Calculate and update total balance
+        self._update_total_balance(household)
+        
+        # Save data
+        data["households"][household_id] = household
+        self.save_households(data)
+        
+        # Prepare success message
+        voucher_details = VOUCHER_CONFIG[tranche]["distribution"]
+        total_value = VOUCHER_CONFIG[tranche]["total_value"]
+        message = f"""
+        Successfully claimed {tranche} batch vouchers!
+        
+        Distribution Details:
+        - $2 vouchers: {voucher_details['2']} pieces
+        - $5 vouchers: {voucher_details['5']} pieces
+        - $10 vouchers: {voucher_details['10']} pieces
+        - Total value: ${total_value}
+        - Claim date: {household['vouchers'][tranche]['grant_date']}
+        
+        Current total balance: ${household['total_balance']}
+        """
+        
+        return True, message, household['total_balance']
+    
+    def _update_total_balance(self, household):
+        """Update household total balance"""
+        total = 0
+        
+        for tranche in ["May2025", "Jan2026"]:
+            details = household["vouchers"][tranche]["details"]
+            total += (
+                details["2"] * 2 +
+                details["5"] * 5 +
+                details["10"] * 10
+            )
+        
+        household["total_balance"] = total
+    
+    def get_voucher_status(self, household_id):
+        """Get voucher status for a household"""
+        data = self.load_households()
+        
+        if household_id not in data["households"]:
+            return None
+        
+        household = data["households"][household_id]
+        
+        status = {
+            "household_id": household_id,
+            "total_balance": household["total_balance"],
+            "vouchers": {}
+        }
+        
+        for tranche in ["May2025", "Jan2026"]:
+            details = household["vouchers"][tranche]["details"]
+            status["vouchers"][tranche] = {
+                "claimed": household["vouchers"][tranche]["claimed"],
+                "grant_date": household["vouchers"][tranche].get("grant_date"),
+                "details": details.copy(),
+                "total_value": (
+                    details["2"] * 2 +
+                    details["5"] * 5 +
+                    details["10"] * 10
+                )
+            }
+        
+        return status
+    
+    def create_test_household(self, household_id, members=None):
+        """
+        Create a test household (for demo purposes)
+        Note: This should be Step 1 functionality, only for testing here
+        """
+        data = self.load_households()
+        
+        if household_id in data["households"]:
+            return False, "Household already exists"
+        
+        # Create household data structure (according to group discussion)
+        data["households"][household_id] = {
+            "members": members or ["Test Member"],
+            "vouchers": {
+                "May2025": {
+                    "claimed": False,
+                    "grant_date": None,
+                    "details": {"2": 0, "5": 0, "10": 0}
+                },
+                "Jan2026": {
+                    "claimed": False,
+                    "grant_date": None,
+                    "details": {"2": 0, "5": 0, "10": 0}
+                }
+            },
+            "total_balance": 0
+        }
+        
+        self.save_households(data)
+        return True, f"Test household {household_id} created successfully"
+
+# ============ Command Line Interface ============
+def main():
+    """Command line interactive interface"""
+    service = VoucherClaimService()
+    
+    print("=" * 50)
+    print("CDC Voucher Claim System")
+    print("=" * 50)
+    
+    while True:
+        print("\nSelect operation:")
+        print("1. Create test household")
+        print("2. Check voucher status")
+        print("3. Claim vouchers")
+        print("4. Exit")
+        
+        choice = input("Enter choice (1-4): ").strip()
+        
+        if choice == "1":
+            # Create test household
+            household_id = input("Enter household ID: ").strip()
+            members_input = input("Enter household members (comma separated, leave empty for default): ").strip()
+            members = [m.strip() for m in members_input.split(",")] if members_input else None
+            
+            success, message = service.create_test_household(household_id, members)
+            print(f"\n{message}")
+        
+        elif choice == "2":
+            # Check status
+            household_id = input("Enter household ID: ").strip()
+            status = service.get_voucher_status(household_id)
+            
+            if status is None:
+                print(f"\nHousehold {household_id} does not exist")
+            else:
+                print(f"\n=== Household {household_id} Voucher Status ===")
+                print(f"Total balance: ${status['total_balance']}")
+                
+                for tranche in ["May2025", "Jan2026"]:
+                    voucher_info = status["vouchers"][tranche]
+                    print(f"\n{tranche} batch:")
+                    print(f"  Claimed: {'Yes' if voucher_info['claimed'] else 'No'}")
+                    if voucher_info['grant_date']:
+                        print(f"  Claim date: {voucher_info['grant_date']}")
+                    print(f"  Denomination details:")
+                    print(f"    - $2 vouchers: {voucher_info['details']['2']} pieces")
+                    print(f"    - $5 vouchers: {voucher_info['details']['5']} pieces")
+                    print(f"    - $10 vouchers: {voucher_info['details']['10']} pieces")
+                    print(f"  Batch total: ${voucher_info['total_value']}")
+        
+        elif choice == "3":
+            # Claim vouchers
+            household_id = input("Enter household ID: ").strip()
+            print("\nSelect batch to claim:")
+            print("1. May2025 ($500)")
+            print("2. Jan2026 ($300)")
+            
+            tranche_choice = input("Enter choice (1-2): ").strip()
+            
+            if tranche_choice == "1":
+                tranche = "May2025"
+            elif tranche_choice == "2":
+                tranche = "Jan2026"
+            else:
+                print("Invalid choice")
+                continue
+            
+            success, message, new_balance = service.claim_vouchers(household_id, tranche)
+            
+            if success:
+                print("\n" + "=" * 50)
+                print("Claim Successful!")
+                print("=" * 50)
+                print(message)
+                print("=" * 50)
+            else:
+                print(f"\nClaim failed: {message}")
+        
+        elif choice == "4":
+            print("Thank you for using the system. Goodbye!")
+            break
+        
+        else:
+            print("Invalid choice, please select again")
+
+if __name__ == '__main__':
+    main()
