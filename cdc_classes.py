@@ -1,89 +1,98 @@
 import json
+import csv
 from datetime import datetime
 from typing import List, Dict, Optional
 from dataclasses import dataclass, asdict
+from collections import defaultdict
 
 @dataclass
 class Voucher:
-    """代金券类 - 表示单张代金券"""
+    """Voucher Class - Represents a single CDC voucher"""
     voucher_code: str
     expiry_date: datetime
-    denomination: float  # 面值：2.0, 5.0, 10.0
-    tranche: str        # 批次："2025-05" 或 "2026-01"
-    status: str = "active"  # active, used, expired
+    denomination: float  # Denomination: 2.0, 5.0, 10.0
+    tranche: str        # Tranche: "2025-05" or "2026-01"
+    status: str = "active"  # Status: active, used, expired
     household_id: Optional[str] = None
     redemption_date: Optional[str] = None
     
-    
     def use_voucher(self, redemption_date: str):
-        """标记代金券为已使用"""
+        """Mark the voucher as used"""
         self.status = "used"
         self.redemption_date = redemption_date
     
     def check_expiry(self) -> bool:
-        """检查并更新券的过期状态"""
+        """Check and update the expiry status of the voucher"""
         if self.status == "used":
             return False
             
-        # 获取当前日期 (YYYY-MM-DD)
+        # Get current date (YYYY-MM-DD)
         current_date = datetime.now().strftime("%Y-%m-%d")
         
-        # 如果当前日期大于过期日期，强制转为 expired
-        if current_date > self.expiry_date:
+        # Compare current date with expiry date
+        expiry_str = self.expiry_date.strftime("%Y-%m-%d")
+        if current_date > expiry_str:
             self.status = "expired"
             return True
         return False
 
 @dataclass
 class Household:
-    """家庭账户类 - 核心业务实体"""
+    """Household Class - Core business entity for accounts"""
     household_id: str
     family_members: List[str]
     postal_code: str
     registration_date: str
-    vouchers: Dict[str, List[Voucher]]  # 按批次存储代金券
+    vouchers: Dict[str, List[Voucher]]  # Vouchers stored by tranche
     
     def get_balance(self) -> Dict[float, int]:
-        """获取当前余额（按面值分类统计）"""
+        """Get current balance categorized by denomination"""
         balance = {2.0: 0, 5.0: 0, 10.0: 0}
         for tranche_vouchers in self.vouchers.values():
             for voucher in tranche_vouchers:
                 if voucher.status == "active":
-                    balance[voucher.denomination] += 1
+                    # Ensure denomination matches dictionary keys
+                    denom = float(voucher.denomination)
+                    if denom in balance:
+                        balance[denom] += 1
         return balance
     
     def get_total_balance(self) -> float:
-        """获取总余额"""
+        """Get the total dollar value of active vouchers"""
         balance = self.get_balance()
         return sum(denom * count for denom, count in balance.items())
     
     def claim_vouchers(self, tranche: str, denominations: Dict[float, int]):
-        """领取指定批次的代金券"""
+        """Claim vouchers for a specific tranche and update the records"""
         if tranche not in self.vouchers:
             self.vouchers[tranche] = []
         
-          # 根据批次确定到期日期
+        # Determine expiry date based on tranche
         if tranche == "2025-05":
-            expiry_date = datetime(2025, 12, 31)  # 2025年12月31日
+            expiry_date = datetime(2025, 12, 31)
         elif tranche == "2026-01":
-            expiry_date = datetime(2026, 12, 31)  # 2026年12月31日
+            expiry_date = datetime(2026, 12, 31)
         else:
-            # 如果是其他批次，默认为批次年份的12月31日
-            year = int(tranche.split('-')[0])  # 提取年份
-            expiry_date = datetime(year, 12, 31)
+            # Default to Dec 31st of the tranche year
+            try:
+                year = int(tranche.split('-')[0])
+                expiry_date = datetime(year, 12, 31)
+            except:
+                expiry_date = datetime(2026, 12, 31)
 
-        for denomination, count in allocation.items():
+        # FIXED: Changed 'allocation' to 'denominations' to resolve the bug
+        for denomination, count in denominations.items():
             for _ in range(count):
-                # 生成唯一的券代码
+                # Generate unique voucher code
                 voucher_code = f"CDC_{tranche}_{denomination}_{len(self.vouchers[tranche])+1:04d}"
                 
-                # 创建Voucher对象，传入expiry_date参数
                 voucher = Voucher(
                     voucher_code=voucher_code,
-                    amount=float(denomination),  # 确保转换为浮点数
+                    denomination=float(denomination),
                     tranche=tranche,
-                    expiry_date=expiry_date,  # 设置到期日期
-                    status="active"
+                    expiry_date=expiry_date,
+                    status="active",
+                    household_id=self.household_id
                 )
                 self.vouchers[tranche].append(voucher)
         
@@ -91,7 +100,7 @@ class Household:
 
 @dataclass
 class Merchant:
-    """商户账户类"""
+    """Merchant Account Class"""
     merchant_id: str
     merchant_name: str
     uen: str
@@ -105,7 +114,7 @@ class Merchant:
 
 @dataclass
 class RedemptionTransaction:
-    """代金券兑换交易类"""
+    """Voucher Redemption Transaction Class"""
     transaction_id: str
     household_id: str
     merchant_id: str
@@ -115,12 +124,12 @@ class RedemptionTransaction:
     payment_status: str = "Pending"
     
     def get_remarks(self) -> str:
-        """生成交易备注（按文档要求的格式）"""
+        """Generate transaction remarks per project documentation requirements"""
         if len(self.vouchers_used) == 1:
             return "Final denomination used"
         else:
             remarks = []
-            for i, voucher in enumerate(self.vouchers_used, 1):
+            for i, _ in enumerate(self.vouchers_used, 1):
                 if i == len(self.vouchers_used):
                     remarks.append(f"{i},Final denomination used")
                 else:
@@ -128,25 +137,25 @@ class RedemptionTransaction:
             return ",".join(remarks)
 
 class CDCSystem:
-    """CDC系统主类 - 管理所有业务逻辑和内存数据结构"""
+    """Main CDC System Class - Manages business logic and in-memory data"""
     
     def __init__(self):
-        # 内存数据结构 - 支持快速查询
-        self.households: Dict[str, Household] = {}  # 家庭ID -> Household对象
-        self.merchants: Dict[str, Merchant] = {}    # 商户ID -> Merchant对象
-        self.transactions: Dict[str, RedemptionTransaction] = {}  # 交易ID -> Transaction对象
+        # In-memory structures for O(1) lookups
+        self.households: Dict[str, Household] = {}
+        self.merchants: Dict[str, Merchant] = {}
+        self.transactions: Dict[str, RedemptionTransaction] = {}
         
-        # 快速查询索引
-        self.household_balance_index: Dict[str, float] = {}  # 家庭ID -> 总余额（O(1)查询）
+        # Fast query index for household balances
+        self.household_balance_index: Dict[str, float] = {}
         
-        # 代金券批次配置（根据文档中的表格）
+        # Tranche configurations per project requirements
         self.tranche_config = {
-            "2025-05": {2.0: 50, 5.0: 20, 10.0: 30},  # 500新元
-            "2026-01": {2.0: 30, 5.0: 12, 10.0: 15}   # 300新元
+            "2025-05": {2.0: 50, 5.0: 20, 10.0: 30},  # Total $500
+            "2026-01": {2.0: 30, 5.0: 12, 10.0: 15}   # Total $300
         }
     
     def register_household(self, household_id: str, family_members: List[str], postal_code: str) -> Household:
-        """注册家庭账户"""
+        """Register a new household account"""
         household = Household(
             household_id=household_id,
             family_members=family_members,
@@ -159,13 +168,13 @@ class CDCSystem:
         return household
     
     def register_merchant(self, merchant_data: Dict) -> Merchant:
-        """注册商户账户"""
+        """Register a new merchant account"""
         merchant = Merchant(**merchant_data)
         self.merchants[merchant.merchant_id] = merchant
         return merchant
     
     def claim_vouchers(self, household_id: str, tranche: str) -> bool:
-        """家庭领取代金券"""
+        """Process voucher claims for a household"""
         if household_id not in self.households:
             return False
         
@@ -175,12 +184,12 @@ class CDCSystem:
         household = self.households[household_id]
         household.claim_vouchers(tranche, self.tranche_config[tranche])
         
-        # 更新快速查询索引
+        # Update fast-lookup balance index
         self.household_balance_index[household_id] = household.get_total_balance()
         return True
     
     def refresh_vouchers_status(self):
-        """遍历所有家庭的所有券，自动标记过期"""
+        """Automatically mark expired vouchers across all households"""
         expired_count = 0
         for household in self.households.values():
             for tranche in household.vouchers.values():
@@ -188,45 +197,42 @@ class CDCSystem:
                     if voucher.check_expiry():
                         expired_count += 1
         if expired_count > 0:
-            print(f"系统已自动清理 {expired_count} 张过期代金券。")
+            print(f"System: {expired_count} expired vouchers have been updated.")
 
     def get_household_balance(self, household_id: str) -> Optional[Dict]:
-        """快速查询家庭余额 - O(1)时间复杂度"""
+        """Retrieve household balance with O(1) complexity"""
         if household_id not in self.households:
             return None
         
         household = self.households[household_id]
         return {
-            "total": self.household_balance_index[household_id],
+            "total": self.household_balance_index.get(household_id, 0.0),
             "breakdown": household.get_balance(),
             "household_id": household_id
         }
     
     def redeem_vouchers(self, household_id: str, merchant_id: str, denominations: Dict[float, int]) -> Optional[RedemptionTransaction]:
-        """代金券兑换"""
+        """Handle the redemption of vouchers"""
         if household_id not in self.households or merchant_id not in self.merchants:
             return None
         
         household = self.households[household_id]
         available_balance = household.get_balance()
         
-        # 检查余额是否足够
+        # Validate if the household has enough vouchers
         for denom, count in denominations.items():
             if available_balance.get(denom, 0) < count:
                 return None
         
-        # 查找并标记使用的代金券
         vouchers_used = []
         total_amount = 0
         
+        # Select active vouchers to fulfill redemption
         for denom, count in denominations.items():
             vouchers_found = 0
-            for tranche, tranche_vouchers in household.vouchers.items():
+            for tranche_vouchers in household.vouchers.values():
                 for voucher in tranche_vouchers:
-                    if voucher.is_expired():
-                        continue 
-             
-                    if voucher.denomination == denom and voucher.status == "active" and vouchers_found < count:
+                    if voucher.status == "active" and voucher.denomination == denom:
                         voucher.use_voucher(datetime.now().strftime("%Y%m%d%H%M%S"))
                         vouchers_used.append(voucher)
                         total_amount += denom
@@ -236,10 +242,10 @@ class CDCSystem:
                 if vouchers_found == count:
                     break
         
-        # 创建交易记录
-        transaction_id = f"TX{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        # Create and store transaction record
+        tx_id = f"TX{datetime.now().strftime('%Y%m%d%H%M%S')}"
         transaction = RedemptionTransaction(
-            transaction_id=transaction_id,
+            transaction_id=tx_id,
             household_id=household_id,
             merchant_id=merchant_id,
             transaction_datetime=datetime.now().strftime("%Y%m%d%H%M%S"),
@@ -248,26 +254,22 @@ class CDCSystem:
             payment_status="Completed"
         )
         
-        self.transactions[transaction_id] = transaction
+        self.transactions[tx_id] = transaction
         self.household_balance_index[household_id] = household.get_total_balance()
-    
+        return transaction
+
     def export_hourly_summary_csv(self):
+        """Export hourly summary for audit purposes"""
         now = datetime.now()
         date_str = now.strftime("%Y-%m-%d")
         hour_str = now.strftime("%H")
         filename = f"Redeem{now.strftime('%Y%m%d%H')}.csv"
         
-        # 1. 预处理：刷新所有券的过期状态，确保“当前总额”准确
-        for hh in self.households.values():
-            for tranche in hh.vouchers.values():
-                for v in tranche:
-                    v.is_expired() # 调用之前写的过期检查方法
+        # Update expiry status before export
+        self.refresh_vouchers_status()
 
         current_hour_prefix = now.strftime("%Y%m%d%H")
-        
-        # 2. 构造数据：这里我们遍历所有有变动的家庭
-        # 如果需要监控所有家庭，则遍历 self.households.values()
-        summary_data = defaultdict(lambda: defaultdict(int)) # {hid: {denom: count}}
+        summary_data = defaultdict(lambda: defaultdict(int))
         
         for tx in self.transactions.values():
             if tx.transaction_datetime.startswith(current_hour_prefix):
@@ -281,17 +283,12 @@ class CDCSystem:
                 writer = csv.DictWriter(f, fieldnames=fields)
                 writer.writeheader()
                 
-                # 遍历所有家庭（确保即使没消费，余额也能被核查）
                 for hid, household in self.households.items():
-                    # 计算初始总额和当前余额
+                    # Calculate values for audit
                     initial_total = sum(v.denomination for v_list in household.vouchers.values() for v in v_list)
                     current_balance = household.get_total_balance()
                     
-                    # 获取该小时内的变动（如果有的话）
                     changes = summary_data.get(hid, {})
-                    
-                    # 如果该小时有消费，记录消费面额；如果没消费，记录一条 Count 为 0 的记录或跳过
-                    # 通常核查要求记录变动：
                     if changes:
                         for denom, count in changes.items():
                             writer.writerow({
@@ -301,7 +298,7 @@ class CDCSystem:
                                 "Current_Total_Value": current_balance
                             })
                     else:
-                        # 可选：记录无变动的余额快照（对于核查非常有用）
+                        # Record a snapshot for households with no changes
                         writer.writerow({
                             "HouseholdID": hid, "Denomination": "-", "Count": 0,
                             "Date": date_str, "Hour": hour_str,
@@ -310,28 +307,27 @@ class CDCSystem:
                         })
             return filename
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"Error exporting CSV: {e}")
             return None
-# 数据持久化管理类
+
 class DataPersistenceManager:
-    """数据持久化管理类 - 处理文件存储和加载"""
+    """Persistence Manager - Handles saving and loading data to flat files"""
     
     @staticmethod
     def save_households(households: Dict[str, Household], filename: str):
-        """保存家庭数据到文件"""
+        """Save household data to JSON"""
         data = {hid: asdict(hh) for hid, hh in households.items()}
         with open(filename, 'w') as f:
             json.dump(data, f, indent=2)
     
     @staticmethod
     def load_households(filename: str) -> Dict[str, Household]:
-        """从文件加载家庭数据"""
+        """Load household data from JSON and restore objects"""
         try:
             with open(filename, 'r') as f:
                 data = json.load(f)
             households = {}
             for hid, hh_data in data.items():
-                # 转换vouchers数据
                 vouchers_dict = {}
                 for tranche, voucher_list in hh_data['vouchers'].items():
                     vouchers_dict[tranche] = [Voucher(**v) for v in voucher_list]
@@ -340,10 +336,3 @@ class DataPersistenceManager:
             return households
         except FileNotFoundError:
             return {}
-    
-    @staticmethod
-    def save_redemption_transaction(transaction: RedemptionTransaction):
-        """保存兑换交易记录（按文档要求的格式）"""
-        filename = f"Redeem{datetime.now().strftime('%Y%m%d%H')}.csv"
-        # 实现CSV格式保存逻辑
-        pass
