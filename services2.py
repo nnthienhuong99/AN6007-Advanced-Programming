@@ -180,4 +180,29 @@ def serialize_household(hh: Household):
     return {
         "household_id": hh.household_id,
         "balances": {t: hh.get_balance_by_tranche(t) for t in hh.vouchers.keys()}
+
+    }
+def register_merchant(merchant_id: str, merchant_name: str, uen: str = "N/A"):
+    """
+    Registers a new merchant into the in-memory store and persists the state.
+    """
+    if merchant_id in store.merchants:
+        # If merchant exists, we can either update it or return the existing one
+        return {"status": "info", "message": f"Merchant {merchant_id} already exists."}
+    
+    new_merchant = Merchant(
+        merchant_id=merchant_id,
+        merchant_name=merchant_name,
+        uen=uen,
+        registration_date=datetime.now().date(),
+        status="Active"
+    )
+    
+    store.merchants[merchant_id] = new_merchant
+    save_state()  # Ensure the new merchant is saved to system_state.json
+    
+    return {
+        "status": "success", 
+        "merchant_id": merchant_id, 
+        "merchant_name": merchant_name
     }
