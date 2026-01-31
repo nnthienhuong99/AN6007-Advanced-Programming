@@ -10,28 +10,30 @@ from datetime import date
 class Voucher:
     voucher_id: str
     denomination: int
-
+    grant_date: date
+    expiry_date: date
+    redemption_date: date
 
 @dataclass
 class Household:
     household_id: str
     # Keep these optional so the API can register a household with only household_id.
     num_people: int
-    nric: Dict[str, str] = field(default_factory=dict)
-    full_names: Dict[str, str] = field(default_factory=dict)
-
+    nric: Dict[str, str]
+    full_names: Dict[str, str]
+    postal_code: int
+    unit_number: str
 
 @dataclass
 class Merchant:
     merchant_id: str
     merchant_name: str
-    # Optional metadata (aligns with the project PDF), defaulted for minimal registration.
-    uen: str = ""
-    bank_name: str = ""
-    bank_code: str = ""
-    branch_code: str = ""
-    account_number: str = ""
-    account_holder_name: str = ""
+    uen: str
+    bank_name: str
+    bank_code: int
+    branch_code: int
+    account_number: int
+    account_holder_name: str
     registration_date: Optional[date] = None
     status: str = "Active"
 
@@ -42,8 +44,7 @@ class Transaction:
     household_id: str
     merchant_id: str
     amount: float
-    # ISO datetime string (e.g., 2025-11-02T08:15:32)
-    datetime_iso: str
+    datetime_iso: str # ISO datetime string (e.g., 2025-11-02T08:15:32)
 
 
 # -------- In-Memory Store --------

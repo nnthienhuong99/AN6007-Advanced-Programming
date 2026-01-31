@@ -50,7 +50,11 @@ INDEX_HTML = """<!doctype html>
         <h3>Create household (POST)</h3>
         <form method='post' action='/households/create'>
           <div><input name='household_id' placeholder='household_id (e.g. H001)' required></div>
-          <div><input name='num_people' placeholder='num_people (optional, default 0)'></div>
+          <div><input name='num_people' placeholder='num_people (e.g. 0)'></div>
+          <div><input name='nric' placeholder='nric (e.g. M987)'></div>
+          <div><input name='full_names' placeholder=' full_names (e.g. Koh Choon Hye)'></div>
+          <div><input name='postal_code' placeholder=' postal_code (e.g. 675982)'></div>
+          <div><input name='unit_number' placeholder=' unit_number (e.g. 16)'></div>
           <button type='submit'>Create</button>
         </form>
         <p class='hint'>Default vouchers generated: 30x$2, 12x$5, 15x$10.</p>
@@ -61,6 +65,12 @@ INDEX_HTML = """<!doctype html>
         <form method='post' action='/merchants/create'>
           <div><input name='merchant_id' placeholder='merchant_id (e.g. M001)' required></div>
           <div><input name='merchant_name' placeholder='merchant_name (e.g. FairPrice)' required></div>
+          <div><input name='uen' placeholder='uen (e.g. T24LL1234A)' required></div>
+          <div><input name='bank_name' placeholder='bank_name (e.g. HSBC Singapore)' required></div>
+          <div><input name='bank_code' placeholder='bank_code (e.g. 7375)' required></div>
+          <div><input name='branch_code' placeholder='branch_code (e.g. 146)' required></div>
+          <div><input name='account_number' placeholder='account_number (e.g. 9876543210)' required></div>
+          <div><input name='account_holder_name' placeholder='account_holder_name (e.g. FairPrice Pte Ltd)' required></div>
           <button type='submit'>Create</button>
         </form>
       </div>
@@ -105,9 +115,11 @@ def api_create_household():
     data = request.get_json(force=True) or {}
     res = register_household(
         household_id=data["household_id"],
-        num_people=int(data.get("num_people", 0) or 0),
-        nric=data.get("nric") or {},
-        full_names=data.get("full_names") or {},
+        num_people=int(data.get("num_people")),
+        postal_code=int(data.get("postal_code")),
+        unit_number=str(data.get("unit_number")),
+        nric=data.get("nric"),
+        full_names=data.get("full_names"),
     )
     return jsonify(res)
 
@@ -136,7 +148,18 @@ def api_claim_tranche(household_id: str):
 def web_create_household():
     household_id = request.form.get("household_id", "").strip()
     num_people = int(request.form.get("num_people") or 0)
-    return jsonify(register_household(household_id=household_id, num_people=num_people))
+    nric = request.form.get("nric")
+    full_names = request.form.get("full_names")
+    postal_code = request.form.get("postal_code")
+    unit_number= request.form.get("unit_number")
+    return jsonify(register_household(
+        household_id=household_id
+        , num_people=num_people
+        , nric=nric
+        , full_names=full_names
+        , postal_code=postal_code
+        , unit_number=unit_number
+        ))
 
 
 # -------- Merchants --------
@@ -163,9 +186,24 @@ def api_list_merchants():
 
 @app.post("/merchants/create")
 def web_create_merchant():
-    merchant_id = request.form.get("merchant_id", "").strip()
-    merchant_name = request.form.get("merchant_name", "").strip()
-    return jsonify(register_merchant(merchant_id=merchant_id, merchant_name=merchant_name))
+    merchant_id = request.form.get("merchant_id").strip()
+    merchant_name = request.form.get("merchant_name").strip()
+    uen = request.form.get("uen").strip()
+    bank_name = request.form.get("bank_name").strip()
+    bank_code = request.form.get("bank_code").strip()
+    branch_code = request.form.get("branch_code").strip()
+    account_number = request.form.get("account_number").strip()
+    account_holder_name = request.form.get("account_holder_name").strip()
+    return jsonify(register_merchant(
+        merchant_id=merchant_id,
+        merchant_name=merchant_name,
+        uen=uen,
+        bank_name=bank_name,
+        bank_code=bank_code,
+        branch_code=branch_code,
+        account_number=account_number,
+        account_holder_name=account_holder_name,
+    ))
 
 
 # -------- Redemptions --------
