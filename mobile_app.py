@@ -6,7 +6,7 @@ from datetime import datetime
 import os
 
 # API Configuration
-API_BASE_URL = "http://localhost:5000/api"
+API_BASE_URL = "http://localhost:8000/api"
 
 class CDCApp:
     def __init__(self, page: ft.Page):
@@ -328,12 +328,12 @@ class CDCApp:
         
         except Exception as e:
             self.show_snackbar(f"Error: {str(e)}", ft.colors.RED)
-    
+# Display merchant registration page
     def show_merchant_signup(self):
-        """Display merchant registration page"""
+        """"""
         title = ft.Text("Merchant Registration", size=24, weight=ft.FontWeight.BOLD)
-        
-        # Get bank list
+
+        # Load banks (bank_code + bank_name)
         banks = []
         try:
             response = requests.get(f"{API_BASE_URL}/banks")
@@ -342,52 +342,101 @@ class CDCApp:
                 banks = data.get("banks", [])
         except:
             pass
-        
-        # Input fields
+
+        # Inputs
         name_field = ft.TextField(
             label="Business Name",
             hint_text="Enter business name",
             prefix_icon=ft.icons.BUSINESS,
             width=300
         )
-        
+
         uen_field = ft.TextField(
             label="UEN Number",
             hint_text="Enter UEN number",
             prefix_icon=ft.icons.NUMBERS,
             width=300
         )
-        
-        # Bank selection
-        bank_options = [ft.dropdown.Option(f"{bank['bank_code']} - {bank['bank_name']}") for bank in banks]
-        bank_dropdown = ft.Dropdown(
-            label="Select Bank",
-            options=bank_options,
-            width=300
-        )
-        
-        branch_field = ft.TextField(
-            label="Branch Code",
-            hint_text="Enter branch code",
-            prefix_icon=ft.icons.ACCOUNT_BALANCE,
-            width=300
-        )
-        
+
         account_field = ft.TextField(
             label="Account Number",
             hint_text="Enter account number",
             prefix_icon=ft.icons.CREDIT_CARD,
             width=300
         )
-        
+
         holder_field = ft.TextField(
             label="Account Holder Name",
             hint_text="Enter account holder name",
             prefix_icon=ft.icons.PERSON,
             width=300
         )
-        
-        # Register button
+
+        # Dropdowns
+        bank_options = [
+            ft.dropdown.Option(f"{b.get('bank_code','')} - {b.get('bank_name','')}".strip(" -"))
+            for b in banks
+        ]
+
+        bank_dropdown = ft.Dropdown(
+            label="Select Bank",
+            options=bank_options,
+            width=300
+        )
+
+        branch_dropdown = ft.Dropdown(
+            label="Select Branch",
+            options=[],
+            width=300,
+            disabled=True
+        )
+
+        def _parse_bank(v: str):
+            parts = (v or "").split(" - ", 1)
+            bank_code = parts[0].strip()
+            bank_name = parts[1].strip() if len(parts) > 1 else ""
+            return bank_code, bank_name
+
+        def _parse_branch_code(v: str) -> str:
+            return (v or "").split(" - ", 1)[0].strip()
+
+        def on_bank_change(e):
+            # reset branch first
+            branch_dropdown.options = []
+            branch_dropdown.value = None
+            branch_dropdown.disabled = True
+
+            selected_bank = bank_dropdown.value
+            if not selected_bank or " - " not in selected_bank:
+                self.page.update()
+                return
+
+            bank_code, bank_name = _parse_bank(selected_bank)
+
+            branches = []
+            try:
+                response = requests.get(
+                    f"{API_BASE_URL}/banks/{bank_code}/branches",
+                    params={"bank_name": bank_name}  # differentiate DBS vs POSB with same bank_code
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    branches = data.get("branches", [])
+            except:
+                branches = []
+
+            branch_dropdown.options = [
+                ft.dropdown.Option(
+                    f"{br.get('branch_code','')} - {br.get('branch_name','')}".strip(" -")
+                )
+                for br in branches
+            ]
+            branch_dropdown.disabled = False
+            self.page.update()
+
+        bank_dropdown.on_change = on_bank_change
+
+        # Buttons
         register_btn = ft.ElevatedButton(
             "Register",
             icon=ft.icons.BUSINESS_CENTER,
@@ -395,19 +444,19 @@ class CDCApp:
                 name_field.value,
                 uen_field.value,
                 bank_dropdown.value,
-                branch_field.value,
+                branch_dropdown.value, 
                 account_field.value,
                 holder_field.value
             ),
             width=300
         )
-        
+
         back_btn = ft.TextButton(
             "Back to Login",
             on_click=lambda e: self.show_login_page("merchant")
         )
-        
-        # layout
+
+        # Layout
         content = ft.Container(
             content=ft.Column(
                 [
@@ -416,7 +465,7 @@ class CDCApp:
                     name_field,
                     uen_field,
                     bank_dropdown,
-                    branch_field,
+                    branch_dropdown,
                     account_field,
                     holder_field,
                     ft.Divider(height=20),
@@ -430,37 +479,46 @@ class CDCApp:
             padding=40,
             alignment=ft.alignment.center
         )
-        
+
         self.page.add(content)
         self.page.update()
-    
+
+
     def handle_merchant_signup(self, name, uen, bank, branch, account, holder):
         """Process merchant registration"""
         if not all([name, uen, bank, branch, account, holder]):
             self.show_snackbar("Please fill all fields", ft.colors.RED)
             return
-        
+
+        # ✅ strict: bank must be "7171 - DBS Bank Ltd", not "7171"
+        if " - " not in (bank or ""):
+            self.show_snackbar("Please select a bank from the dropdown", ft.colors.RED)
+            return
+
         try:
-            # Extract bank code
-            bank_code = bank.split(" - ")[0] if bank and " - " in bank else ""
-            
+            bank_code, bank_name = bank.split(" - ", 1)
+            bank_code = bank_code.strip()
+            bank_name = bank_name.strip()
+
+            branch_code = (branch or "").split(" - ", 1)[0].strip()
+
             response = requests.post(
                 f"{API_BASE_URL}/merchants/register",
                 json={
                     "merchant_name": name,
                     "uen": uen,
                     "bank_code": bank_code,
-                    "branch_code": branch,
+                    "bank_name": bank_name,           # ✅ send for auditing / clarity (backend can ignore if not needed)
+                    "branch_code": branch_code,       # ✅ FIX: send code only, not full string
                     "account_number": account,
                     "account_holder_name": holder
                 }
             )
-            
+
             if response.status_code == 200:
                 data = response.json()
                 merchant_id = data.get("merchant_id")
-                
-                # Display success message
+
                 self.page.clean()
                 success_content = ft.Container(
                     content=ft.Column(
@@ -486,7 +544,7 @@ class CDCApp:
             else:
                 error_data = response.json()
                 self.show_snackbar(error_data.get("message", "Registration failed"), ft.colors.RED)
-        
+
         except Exception as e:
             self.show_snackbar(f"Error: {str(e)}", ft.colors.RED)
     
@@ -1371,7 +1429,7 @@ if __name__ == "__main__":
     print("=" * 60)
     print("\nMake sure the Flask API server is running:")
     print("• python app.py")
-    print("\nThen connect to: http://localhost:5000")
+    print("\nThen connect to: http://localhost:8000")
     print("\nFeatures:")
     print("• Household users: Claim vouchers, generate redemption codes")
     print("• Merchants: Process redemptions, view transactions")

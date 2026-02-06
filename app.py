@@ -20,12 +20,6 @@ _HOUSEHOLDS_CSV = os.path.join(_DATA_DIR, "households.csv")
 _MERCHANTS_CSV = os.path.join(_DATA_DIR, "merchants.csv")
 _TRANSACTIONS_CSV = os.path.join(_DATA_DIR, "transactions.csv")
 
-def _norm_unit(unit: str) -> str:
-    return (unit or "").strip().upper()
-
-def _norm_uen(uen: str) -> str:
-    return (uen or "").strip().upper()
-
 def _ensure_data_dir():
     """Ensure data directory exists"""
     os.makedirs(_DATA_DIR, exist_ok=True)
@@ -47,7 +41,7 @@ def _ensure_flat_files():
                 "unit_number",
                 "district",
                 "num_people",
-                "registered_date",
+                "registration_date",
                 "balance_2",
                 "balance_5",
                 "balance_10",
@@ -101,10 +95,10 @@ def _save_household_to_csv(household):
         with open(_HOUSEHOLDS_CSV, "r", newline="", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                if row["household_id"] == household.household_id:
+                if row["nric"] == household.nric:
                     # Update existing household
                     households.append({
-                        "household_id": household.household_id,
+                        "household_id": row["household_id"],
                         "name": household.name,
                         "nric": household.nric,
                         "email": household.email,
@@ -112,7 +106,7 @@ def _save_household_to_csv(household):
                         "unit_number": household.unit_number,
                         "district": household.district,
                         "num_people": household.num_people,
-                        "registered_date": household.registered_date,
+                        "registration_date": household.registration_date,
                         "balance_2": household.balance_2,
                         "balance_5": household.balance_5,
                         "balance_10": household.balance_10,
@@ -133,7 +127,7 @@ def _save_household_to_csv(household):
             "unit_number": household.unit_number,
             "district": household.district,
             "num_people": household.num_people,
-            "registered_date": household.registered_date,
+            "registration_date": household.registration_date,
             "balance_2": household.balance_2,
             "balance_5": household.balance_5,
             "balance_10": household.balance_10,
@@ -144,7 +138,7 @@ def _save_household_to_csv(household):
     with open(_HOUSEHOLDS_CSV, "w", newline="", encoding="utf-8") as f:
         fieldnames = [
             "household_id", "name", "nric", "email", "postal_code", "unit_number",
-            "district", "num_people", "registered_date", "balance_2", "balance_5",
+            "district", "num_people", "registration_date", "balance_2", "balance_5",
             "balance_10", "claimed_tranches"
         ]
         writer = csv.DictWriter(f, fieldnames=fieldnames)
@@ -163,10 +157,9 @@ def _save_merchant_to_csv(merchant):
         with open(_MERCHANTS_CSV, "r", newline="", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                if row["merchant_id"] == merchant.merchant_id:
-                    # Update existing merchant
+                if row["uen"] == merchant.uen:
                     merchants.append({
-                        "merchant_id": merchant.merchant_id,
+                        "merchant_id": row["merchant_id"], # Update existing merchant
                         "merchant_name": merchant.merchant_name,
                         "uen": merchant.uen,
                         "bank_code": merchant.bank_code,
@@ -230,8 +223,8 @@ def _save_transaction_to_csv(transaction):
 
 def _load_data_from_csv():
     """Load all data from CSV files into memory"""
-    _ensure_flat_files()
-    
+    _ensure_data_dir()
+
     households = {}
     merchants = {}
     transactions = {}
@@ -251,7 +244,7 @@ def _load_data_from_csv():
                     unit_number=row["unit_number"],
                     district=row["district"],
                     num_people=int(row["num_people"]),
-                    registered_date=row["registered_date"],
+                    registration_date=row["registration_date"],
                     claimed_tranches=json.loads(row.get("claimed_tranches", "[]")),
                     balance_2=int(row.get("balance_2", 0)),
                     balance_5=int(row.get("balance_5", 0)),
@@ -302,7 +295,6 @@ def _load_data_from_csv():
     return households, merchants, transactions, total_amount_redeemed
 
 # Data class definition
-
 @dataclass
 class Voucher:
     voucher_id: str
@@ -324,7 +316,7 @@ class Household:
     unit_number: str = ""
     district: str = ""
     num_people: int = 0
-    registered_date: str = ""
+    registration_date: str = ""
     claimed_tranches: List[str] = field(default_factory=list)
     balance_2: int = 0
     balance_5: int = 0
@@ -359,7 +351,6 @@ class Transaction:
     payment_status: str = "Completed"  # For CSV report
 
 # Memory storage
-
 class InMemoryStore:
     def __init__(self):
         # Load data from CSV files
@@ -645,7 +636,7 @@ def get_all_households():
             "email": household.email,
             "postal_code": household.postal_code,
             "unit_number": household.unit_number,
-            "registered_date": household.registered_date,
+            "registration_date": household.registration_date,
             "claimed_tranches": household.claimed_tranches,
             "balance": store.get_household_balance(hid)
         })
@@ -680,7 +671,7 @@ def get_household(household_id):
             "unit_number": household.unit_number,
             "district": household.district,
             "num_people": household.num_people,
-            "registered_date": household.registered_date,
+            "registration_date": household.registration_date,
             "claimed_tranches": household.claimed_tranches,
             "balance": balance,
             "total_value": total_value
@@ -700,9 +691,18 @@ def register_household():
                 "status": "error",
                 "message": f"Missing required field: {field}"
             }), 400
-    
-    # Generate household ID
-    household_id = f"H{len(store.households) + 1:03d}"
+
+    # Reuse existing household_id if UEN already registered
+    existing = next((m for m in store.households.values() if m.nric == data["nric"]), None)
+
+    if existing:
+        household_id = existing.household_id
+        registration_date = existing.registration_date or datetime.now().strftime("%Y-%m-%d")
+        message = "NRIC already exists, details updated accordingly"
+    else:
+        household_id = f"H{len(store.households) + 1:03d}"
+        registration_date = datetime.now().strftime("%Y-%m-%d")
+        message = "Household registered successfully"
     
     # Create household object
     household = Household(
@@ -714,7 +714,7 @@ def register_household():
         unit_number=data["unit_number"],
         district=data.get("district", ""),
         num_people=int(data.get("num_people", 1)),
-        registered_date=datetime.now().strftime("%Y-%m-%d")
+        registration_date=registration_date
     )
     
     # Save to storage
@@ -728,13 +728,13 @@ def register_household():
     
     return jsonify({
         "status": "success",
-        "message": "Household registered successfully",
+        "message": message,
         "household_id": household_id,
         "household": {
             "household_id": household_id,
             "name": household.name,
             "email": household.email,
-            "registered_date": household.registered_date
+            "registration_date": household.registration_date
         }
     })
 
@@ -758,10 +758,8 @@ def get_balance(household_id):
     })
 
 # Vouchers-related API
-
 @app.route('/api/vouchers/claim', methods=['POST'])
-def claim_vouchers():
-    """Claim voucher batches"""
+def claim_vouchers(): # Claim voucher batches
     data = request.json
     
     # Validate necessary fields
@@ -787,7 +785,7 @@ def claim_vouchers():
             "status": "error",
             "message": result["error"]
         }), 400
-    
+
     return jsonify({
         "status": "success",
         "message": f"Vouchers from tranche {tranche_id} claimed successfully",
@@ -802,10 +800,8 @@ def claim_vouchers():
     })
 
 # Merchant-related API
-
 @app.route('/api/merchants', methods=['GET'])
-def get_all_merchants():
-    """Get all merchants"""
+def get_all_merchants(): # Get all merchants
     merchants = []
     for mid, merchant in store.merchants.items():
         merchants.append({
@@ -824,8 +820,7 @@ def get_all_merchants():
     })
 
 @app.route('/api/merchants/register', methods=['POST'])
-def register_merchant():
-    """Register new merchant"""
+def register_merchant(): # Register new merchant
     data = request.json
     
     # Validate necessary fields
@@ -838,8 +833,17 @@ def register_merchant():
                 "message": f"Missing required field: {field}"
             }), 400
     
-    # Generate merchant ID
-    merchant_id = f"M{len(store.merchants) + 1:03d}"
+    # Reuse existing merchant_id if UEN already registered
+    existing = next((m for m in store.merchants.values() if m.uen == data["uen"]), None)
+
+    if existing:
+        merchant_id = existing.merchant_id
+        registration_date = existing.registration_date or datetime.now().strftime("%Y-%m-%d")
+        message = "Merchant UEN already exists, details updated accordingly"
+    else:
+        merchant_id = f"M{len(store.merchants) + 1:03d}"
+        registration_date = datetime.now().strftime("%Y-%m-%d")
+        message = "Merchant registered successfully"
     
     # Create merchant object
     merchant = Merchant(
@@ -852,7 +856,7 @@ def register_merchant():
         account_holder_name=data["account_holder_name"],
         bank_name=data.get("bank_name", ""),
         branch_name=data.get("branch_name", ""),
-        registration_date=datetime.now().strftime("%Y-%m-%d")
+        registration_date=registration_date
     )
     
     # Save to storage
@@ -866,7 +870,7 @@ def register_merchant():
     
     return jsonify({
         "status": "success",
-        "message": "Merchant registered successfully",
+        "message": message,
         "merchant_id": merchant_id,
         "merchant": {
             "merchant_id": merchant_id,
@@ -936,7 +940,6 @@ def redeem_transaction():
     })
 
 # System Statistics API
-
 @app.route('/api/stats', methods=['GET'])
 def get_stats():
     """Get system statistics"""
