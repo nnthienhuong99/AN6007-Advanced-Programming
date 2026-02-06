@@ -364,11 +364,7 @@ class InMemoryStore:
     def __init__(self):
         # Load data from CSV files
         self.households, self.merchants, self.transactions, total_amount_redeemed = _load_data_from_csv()
-        
-        # If no data loaded, use sample data
-        if not self.households and not self.merchants:
-            self._load_sample_data()
-        
+
         self.vouchers: Dict[str, Voucher] = {}
         self.household_vouchers: Dict[str, List[str]] = {}  # household_id -> [voucher_ids]
         self.voucher_to_household: Dict[str, str] = {}  # voucher_id -> household_id
@@ -406,60 +402,6 @@ class InMemoryStore:
                     vouchers_2026 += 1
         self.stats["vouchers_claimed_2025"] = vouchers_2025
         self.stats["vouchers_claimed_2026"] = vouchers_2026
-    
-    def _load_sample_data(self):
-        """Load sample data if no csv data exists"""
-        # Sample household
-        h1 = Household(
-            household_id="H001",
-            name="John Tan",
-            nric="S1234567A",
-            email="john@example.com",
-            postal_code="123456",
-            unit_number="10-123",
-            district="12",
-            num_people=4,
-            registered_date="2024-01-01",
-            claimed_tranches=["T1"],
-            balance_2=50,
-            balance_5=20,
-            balance_10=30
-        )
-        self.households["H001"] = h1
-        
-        # Sample merchant
-        m1 = Merchant(
-            merchant_id="M001",
-            merchant_name="ABC Minimart",
-            uen="201234567A",
-            bank_code="7171",
-            branch_code="001",
-            account_number="1234567890",
-            account_holder_name="ABC Minimart Pte Ltd",
-            bank_name="DBS Bank Ltd",
-            branch_name="Main Branch",
-            registration_date="2024-01-01"
-        )
-        self.merchants["M001"] = m1
-        
-        m2 = Merchant(
-            merchant_id="M002",
-            merchant_name="XYZ Bakery",
-            uen="201234568B",
-            bank_code="7171",
-            branch_code="001",
-            account_number="9876543210",
-            account_holder_name="XYZ Bakery LLP",
-            bank_name="DBS Bank Ltd",
-            branch_name="Main Branch",
-            registration_date="2024-01-01"
-        )
-        self.merchants["M002"] = m2
-        
-        # Save sample data to csv
-        _save_household_to_csv(h1)
-        _save_merchant_to_csv(m1)
-        _save_merchant_to_csv(m2)
     
     def get_household_balance(self, household_id: str) -> Dict[str, int]:
         """Get household balance"""
@@ -1014,91 +956,66 @@ def get_stats():
         "stats": stats
     })
 
-# Bank data API
+## Bank data API
+import pandas as pd
 
+BANK_DF = pd.read_csv("Bankcode.csv", dtype=str).fillna("")
+
+BANK_DF = BANK_DF.rename(columns={
+    "Bank_Code": "bank_code",
+    "Bank_Name": "bank_name",
+    "Branch_Code": "branch_code",
+    "Branch_Name": "branch_name",
+    "SWIFT_Code": "swift_code",
+    "Remarks": "remarks",
+})
+
+# clean whitespace
+for c in ["bank_code", "bank_name", "branch_code", "branch_name", "swift_code", "remarks"]:
+    if c in BANK_DF.columns:
+        BANK_DF[c] = BANK_DF[c].astype(str).str.strip()
+
+# optional: normalize branch code format to 3 digits (1 -> "001")
+if "branch_code" in BANK_DF.columns:
+    BANK_DF["branch_code"] = BANK_DF["branch_code"].str.zfill(3)
+
+
+# Get bank list from Bankcode.csv (dedup banks)
 @app.route('/api/banks', methods=['GET'])
 def get_banks():
-    """Get bank list"""
-    banks = [
-        {
-            "bank_code": "7171",
-            "bank_name": "DBS Bank Ltd",
-            "swift_code": "DBSSSGSG",
-            "remarks": "FAST/GIRO Enabled"
-        },
-        {
-            "bank_code": "7339",
-            "bank_name": "OCBC Bank",
-            "swift_code": "OCBCSGSG",
-            "remarks": "FAST/GIRO Enabled"
-        },
-        {
-            "bank_code": "7761",
-            "bank_name": "UOB Bank",
-            "swift_code": "UOVBSGSG",
-            "remarks": "FAST/GIRO Enabled"
-        },
-        {
-            "bank_code": "7091",
-            "bank_name": "Maybank Singapore",
-            "swift_code": "MBBESGSG",
-            "remarks": "FAST/GIRO Enabled"
-        },
-        {
-            "bank_code": "7302",
-            "bank_name": "Standard Chartered Bank",
-            "swift_code": "SCBLSGSG",
-            "remarks": "FAST/GIRO Enabled"
-        },
-        {
-            "bank_code": "7375",
-            "bank_name": "HSBC Singapore",
-            "swift_code": "HSBCSGSG",
-            "remarks": "FAST/GIRO Enabled"
-        }
-    ]
-    
-    return jsonify({
-        "status": "success",
-        "banks": banks
-    })
+    banks = (
+        BANK_DF[["bank_code", "bank_name", "swift_code", "remarks"]]
+        .drop_duplicates(subset=["bank_code", "bank_name"])
+        .to_dict(orient="records")
+    )
+    return jsonify({"status": "success", "banks": banks})
 
+# Get list of branches for a bank from Bankcode.csv
 @app.route('/api/banks/<bank_code>/branches', methods=['GET'])
 def get_branches(bank_code):
-    """Get list of branches of specific banks"""
-    branches = []
-    
-    # Return different branches based on bank code
-    if bank_code == "7171":  # DBS
-        branches = [
-            {"branch_code": "001", "branch_name": "Main Branch"},
-            {"branch_code": "081", "branch_name": "Toa Payoh Branch"},
-            {"branch_code": "101", "branch_name": "Orchard Branch"}
-        ]
-    elif bank_code == "7339":  # OCBC
-        branches = [
-            {"branch_code": "501", "branch_name": "Tampines Branch"},
-            {"branch_code": "502", "branch_name": "Jurong Branch"}
-        ]
-    elif bank_code == "7375":  # HSBC
-        branches = [
-            {"branch_code": "146", "branch_name": "Orchard Branch"},
-            {"branch_code": "147", "branch_name": "Raffles Place Branch"}
-        ]
-    else:
-        # Default value returns a single line break
-        branches = [
-            {"branch_code": "001", "branch_name": "Main Branch"}
-        ]
-    
+    bank_code = str(bank_code).strip()
+    bank_name = (request.args.get("bank_name") or "").strip()
+
+    branches_df = BANK_DF[BANK_DF["bank_code"] == bank_code]
+
+    # also filter by bank_name
+    if bank_name:
+        branches_df = branches_df[branches_df["bank_name"] == bank_name]
+
+    branches = (
+        branches_df[["branch_code", "branch_name"]]
+        .drop_duplicates()
+        .to_dict(orient="records")
+    )
+
     return jsonify({
         "status": "success",
         "bank_code": bank_code,
+        "bank_name": bank_name,
         "branches": branches
     })
 
-# Homepage
-
+# API Documentation
 @app.route('/')
 def index():
     """API documentation page"""
@@ -1196,9 +1113,9 @@ if __name__ == '__main__':
     print("• Files named: RedeemYYYYMMDDHH.csv")
     print("• Example: Redeem2026020418.csv for transactions on Feb 4, 2026, 6 PM")
     print("\nAPI Endpoints available at:")
-    print("• http://localhost:5000/")
-    print("• http://localhost:5000/api/health")
+    print("• http://localhost:8000/")
+    print("• http://localhost:8000/api/health")
     print("\nFlet mobile app should connect to this API.")
     print("=" * 60)
     
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=8000, debug=True)
