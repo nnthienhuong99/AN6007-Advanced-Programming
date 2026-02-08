@@ -76,9 +76,11 @@ class CDCApp:
                     ft.Divider(height=30),
                     ft.Text("© 2025 CDC Singapore", size=12, color="gray")
                 ],
+                scroll=ft.ScrollMode.AUTO,
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 spacing=20
             ),
+            expand=True,
             padding=40,
             alignment=ft.alignment.center
         )
@@ -145,9 +147,11 @@ class CDCApp:
                     signup_btn,
                     back_btn
                 ],
+                scroll=ft.ScrollMode.AUTO,
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 spacing=10
             ),
+            expand=True,
             padding=40,
             alignment=ft.alignment.center
         )
@@ -269,6 +273,7 @@ class CDCApp:
                 spacing=10,
                 scroll=ft.ScrollMode.AUTO
             ),
+            expand=True,
             padding=40,
             alignment=ft.alignment.center
         )
@@ -316,8 +321,10 @@ class CDCApp:
                                 width=200
                             )
                         ],
+                        scroll=ft.ScrollMode.AUTO,
                         horizontal_alignment=ft.CrossAxisAlignment.CENTER
                     ),
+                    expand=True,
                     padding=40,
                     alignment=ft.alignment.center
                 )
@@ -476,6 +483,7 @@ class CDCApp:
                 spacing=10,
                 scroll=ft.ScrollMode.AUTO
             ),
+            expand=True,
             padding=40,
             alignment=ft.alignment.center
         )
@@ -535,8 +543,10 @@ class CDCApp:
                                 width=200
                             )
                         ],
+                        scroll=ft.ScrollMode.AUTO,
                         horizontal_alignment=ft.CrossAxisAlignment.CENTER
                     ),
+                    expand=True,
                     padding=40,
                     alignment=ft.alignment.center
                 )
@@ -607,8 +617,10 @@ class CDCApp:
                             alignment=ft.MainAxisAlignment.CENTER
                         )
                     ],
+                    scroll=ft.ScrollMode.AUTO,
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER
                 ),
+                expand=True,
                 padding=20
             )
         )
@@ -647,9 +659,11 @@ class CDCApp:
                     view_transactions_btn,
                     generate_code_btn
                 ],
+                scroll=ft.ScrollMode.AUTO,
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 spacing=15
             ),
+            expand=True,
             padding=20,
             alignment=ft.alignment.center
         )
@@ -673,11 +687,11 @@ class CDCApp:
                     [
                         ft.Text("May 2025 Tranche", size=18, weight=ft.FontWeight.BOLD, color=ft.colors.BLUE),
                         ft.Text("Total Value: $500", size=16),
-                        ft.Divider(height=10),
+                        ft.Divider(height=5),
                         ft.Text("• 50 x $2 vouchers", size=14),
                         ft.Text("• 20 x $5 vouchers", size=14),
                         ft.Text("• 30 x $10 vouchers", size=14),
-                        ft.Divider(height=20),
+                        ft.Divider(height=16),
                         ft.ElevatedButton(
                             "Already Claimed" if "T1" in claimed_tranches else "Claim Now",
                             icon=ft.icons.CHECK if "T1" in claimed_tranches else ft.icons.DOWNLOAD,
@@ -688,8 +702,10 @@ class CDCApp:
                             width=200
                         )
                     ],
+                    scroll=ft.ScrollMode.AUTO,
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER
                 ),
+                expand=True,
                 padding=20,
                 width=300
             )
@@ -702,11 +718,11 @@ class CDCApp:
                     [
                         ft.Text("January 2026 Tranche", size=18, weight=ft.FontWeight.BOLD, color=ft.colors.GREEN),
                         ft.Text("Total Value: $300", size=16),
-                        ft.Divider(height=10),
+                        ft.Divider(height=5),
                         ft.Text("• 30 x $2 vouchers", size=14),
                         ft.Text("• 12 x $5 vouchers", size=14),
                         ft.Text("• 18 x $10 vouchers", size=14),
-                        ft.Divider(height=20),
+                        ft.Divider(height=16),
                         ft.ElevatedButton(
                             "Already Claimed" if "T2" in claimed_tranches else "Claim Now",
                             icon=ft.icons.CHECK if "T2" in claimed_tranches else ft.icons.DOWNLOAD,
@@ -717,8 +733,10 @@ class CDCApp:
                             width=200
                         )
                     ],
+                    scroll=ft.ScrollMode.AUTO,
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER
                 ),
+                expand=True,
                 padding=20,
                 width=300
             )
@@ -735,15 +753,17 @@ class CDCApp:
             content=ft.Column(
                 [
                     title,
-                    ft.Divider(height=20),
+                    ft.Divider(height=10),
                     tranche1_card,
                     tranche2_card,
-                    ft.Divider(height=30),
+                    ft.Divider(height=15),
                     back_btn
                 ],
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                scroll=ft.ScrollMode.AUTO,
                 spacing=20
             ),
+            expand=True,
             padding=40,
             alignment=ft.alignment.center
         )
@@ -862,8 +882,10 @@ class CDCApp:
                     ft.Divider(height=20),
                     back_btn
                 ],
+                scroll=ft.ScrollMode.AUTO,
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER
             ),
+            expand=True,
             padding=20,
             alignment=ft.alignment.center
         )
@@ -977,9 +999,11 @@ class CDCApp:
                     ft.Divider(height=10),
                     back_btn
                 ],
+                scroll=ft.ScrollMode.AUTO,
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 spacing=10
             ),
+            expand=True,
             padding=30,
             alignment=ft.alignment.center
         )
@@ -1054,8 +1078,10 @@ class CDCApp:
                         width=200
                     )
                 ],
+                scroll=ft.ScrollMode.AUTO,
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER
             ),
+            expand=True,
             padding=40,
             alignment=ft.alignment.center
         )
@@ -1228,9 +1254,11 @@ class CDCApp:
                     ft.Divider(height=10),
                     view_transactions_btn
                 ],
+                scroll=ft.ScrollMode.AUTO,
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 spacing=15
             ),
+            expand=True,
             padding=20,
             alignment=ft.alignment.center
         )
@@ -1266,8 +1294,10 @@ class CDCApp:
                         width=200
                     )
                 ],
+                scroll=ft.ScrollMode.AUTO,
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER
             ),
+            expand=True,
             padding=40,
             alignment=ft.alignment.center
         )
@@ -1323,10 +1353,12 @@ class CDCApp:
                                     horizontal_alignment=ft.CrossAxisAlignment.CENTER
                                 )
                             ],
+                            scroll=ft.ScrollMode.AUTO,
                             alignment=ft.MainAxisAlignment.CENTER
                         )
                     ]
                 ),
+                expand=True,
                 padding=20
             )
         )
@@ -1360,8 +1392,10 @@ class CDCApp:
                                     ft.Text(f"Date: {txn.get('datetime', '')[:16]}", size=10, color="gray")
                                 ]
                             ),
+                            scroll=ft.ScrollMode.AUTO,
                             padding=10
                         ),
+                        expand=True,
                         width=350
                     )
                 )
@@ -1372,8 +1406,10 @@ class CDCApp:
                         ft.Icon(ft.icons.RECEIPT_LONG, size=60, color="gray"),
                         ft.Text("No transactions found", size=16, color="gray")
                     ],
+                    scroll=ft.ScrollMode.AUTO,
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER
                 ),
+                expand=True,
                 padding=40
             )
         
@@ -1396,8 +1432,10 @@ class CDCApp:
                     ft.Divider(height=20),
                     back_btn
                 ],
+                scroll=ft.ScrollMode.AUTO,
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER
             ),
+            expand=True,
             padding=20,
             alignment=ft.alignment.center
         )
