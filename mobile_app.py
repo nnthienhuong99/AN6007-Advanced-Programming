@@ -498,7 +498,7 @@ class CDCApp:
             self.show_snackbar("Please fill all fields", ft.colors.RED)
             return
 
-        # ✅ strict: bank must be "7171 - DBS Bank Ltd", not "7171"
+        # strict: bank must be "7171 - DBS Bank Ltd", not "7171"
         if " - " not in (bank or ""):
             self.show_snackbar("Please select a bank from the dropdown", ft.colors.RED)
             return

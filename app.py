@@ -56,12 +56,11 @@ def _ensure_flat_files():
                 "merchant_id",
                 "merchant_name",
                 "uen",
+                "bank_name",
                 "bank_code",
                 "branch_code",
                 "account_number",
                 "account_holder_name",
-                "bank_name",
-                "branch_name",
                 "registration_date",
                 "status"
             ])
@@ -162,12 +161,11 @@ def _save_merchant_to_csv(merchant):
                         "merchant_id": row["merchant_id"], # Update existing merchant
                         "merchant_name": merchant.merchant_name,
                         "uen": merchant.uen,
+                        "bank_name": merchant.bank_name,
                         "bank_code": merchant.bank_code,
                         "branch_code": merchant.branch_code,
                         "account_number": merchant.account_number,
                         "account_holder_name": merchant.account_holder_name,
-                        "bank_name": merchant.bank_name,
-                        "branch_name": merchant.branch_name,
                         "registration_date": merchant.registration_date,
                         "status": merchant.status
                     })
@@ -181,12 +179,11 @@ def _save_merchant_to_csv(merchant):
             "merchant_id": merchant.merchant_id,
             "merchant_name": merchant.merchant_name,
             "uen": merchant.uen,
+            "bank_name": merchant.bank_name,
             "bank_code": merchant.bank_code,
             "branch_code": merchant.branch_code,
             "account_number": merchant.account_number,
             "account_holder_name": merchant.account_holder_name,
-            "bank_name": merchant.bank_name,
-            "branch_name": merchant.branch_name,
             "registration_date": merchant.registration_date,
             "status": merchant.status
         })
@@ -194,8 +191,8 @@ def _save_merchant_to_csv(merchant):
     # Write back to CSV
     with open(_MERCHANTS_CSV, "w", newline="", encoding="utf-8") as f:
         fieldnames = [
-            "merchant_id", "merchant_name", "uen", "bank_code", "branch_code",
-            "account_number", "account_holder_name", "bank_name", "branch_name",
+            "merchant_id", "merchant_name", "uen", "bank_name", "bank_code", "branch_code",
+            "account_number", "account_holder_name",
             "registration_date", "status"
         ]
         writer = csv.DictWriter(f, fieldnames=fieldnames)
@@ -261,12 +258,11 @@ def _load_data_from_csv():
                     merchant_id=row["merchant_id"],
                     merchant_name=row["merchant_name"],
                     uen=row["uen"],
+                    bank_name=row.get("bank_name", ""),
                     bank_code=row["bank_code"],
                     branch_code=row["branch_code"],
                     account_number=row["account_number"],
                     account_holder_name=row["account_holder_name"],
-                    bank_name=row.get("bank_name", ""),
-                    branch_name=row.get("branch_name", ""),
                     registration_date=row["registration_date"],
                     status=row.get("status", "Active")
                 )
@@ -327,13 +323,12 @@ class Merchant:
     merchant_id: str
     merchant_name: str
     uen: str
+    bank_name: str
     bank_code: str
     branch_code: str
     account_number: str
     account_holder_name: str
-    bank_name: str = ""
-    branch_name: str = ""
-    registration_date: str = ""
+    registration_date: str
     status: str = "Active"
 
 @dataclass
@@ -355,7 +350,6 @@ class InMemoryStore:
     def __init__(self):
         # Load data from CSV files
         self.households, self.merchants, self.transactions, total_amount_redeemed = _load_data_from_csv()
-
         self.vouchers: Dict[str, Voucher] = {}
         self.household_vouchers: Dict[str, List[str]] = {}  # household_id -> [voucher_ids]
         self.voucher_to_household: Dict[str, str] = {}  # voucher_id -> household_id
@@ -471,7 +465,7 @@ class InMemoryStore:
         # Open file in append mode
         with open(csv_filename, 'a', newline='', encoding='utf-8') as csvfile:
             writer = csv.writer(csvfile)
-            
+
             # Write header if file doesn't exist
             if not file_exists:
                 writer.writerow([
@@ -485,27 +479,41 @@ class InMemoryStore:
                     "Payment_Status",
                     "Remarks"
                 ])
-            
-            # Write each voucher as a separate row
-            total_vouchers = len(voucher_details)
-            for i, voucher in enumerate(voucher_details, 1):
-                # Determine remarks
-                if i == total_vouchers:
-                    remarks = "Final denomination used"
-                else:
-                    remarks = str(i)
-                
-                # Format transaction datetime as YYYYMMDDhhmmss
-                trans_datetime_str = trans_dt.strftime('%Y%m%d%H%M%S')
-                
+
+            # Format transaction datetime as YYYYMMDDhhmmss
+            trans_datetime_str = trans_dt.strftime('%Y%m%d%H%M%S')
+
+            # Count vouchers per denomination
+            denom_counts = {}
+            for v in voucher_details:
+                d = int(v["denomination"])
+                denom_counts[d] = denom_counts.get(d, 0) + 1
+
+            # Total amount redeemed per denomination
+            denom_total_amount = {d: d * c for d, c in denom_counts.items()}
+
+            # Track last voucher index per denomination
+            denom_last_index = {}
+            for i, v in enumerate(voucher_details):
+                denom_last_index[int(v["denomination"])] = i
+
+            for i, voucher in enumerate(voucher_details):
+                denom = int(voucher["denomination"])
+
+                remarks = (
+                    "Final denomination used"
+                    if i == denom_last_index[denom]
+                    else str(i)
+                )
+
                 writer.writerow([
                     transaction.transaction_id,
                     transaction.household_id,
                     transaction.merchant_id,
                     trans_datetime_str,
-                    voucher['voucher_code'],
-                    voucher['denomination'],
-                    voucher['denomination'],  # Individual voucher amount
+                    voucher["voucher_code"],
+                    denom,
+                    denom_total_amount[denom],
                     transaction.payment_status,
                     remarks
                 ])
@@ -624,7 +632,6 @@ def health_check():
     return jsonify({"status": "ok", "timestamp": datetime.now().isoformat()})
 
 # Household-related APIs
-
 @app.route('/api/households', methods=['GET'])
 def get_all_households():
     """Get all households"""
@@ -809,7 +816,6 @@ def get_all_merchants(): # Get all merchants
             "merchant_name": merchant.merchant_name,
             "uen": merchant.uen,
             "bank_name": merchant.bank_name,
-            "branch_name": merchant.branch_name,
             "status": merchant.status
         })
     
@@ -824,7 +830,7 @@ def register_merchant(): # Register new merchant
     data = request.json
     
     # Validate necessary fields
-    required_fields = ["merchant_name", "uen", "bank_code", "branch_code", 
+    required_fields = ["merchant_name", "uen", "bank_code", "branch_code",
                       "account_number", "account_holder_name"]
     for field in required_fields:
         if field not in data:
@@ -850,12 +856,11 @@ def register_merchant(): # Register new merchant
         merchant_id=merchant_id,
         merchant_name=data["merchant_name"],
         uen=data["uen"],
+        bank_name=data.get("bank_name", ""),
         bank_code=data["bank_code"],
         branch_code=data["branch_code"],
         account_number=data["account_number"],
         account_holder_name=data["account_holder_name"],
-        bank_name=data.get("bank_name", ""),
-        branch_name=data.get("branch_name", ""),
         registration_date=registration_date
     )
     
