@@ -1,0 +1,160 @@
+**CDC Vouchers System - User Guideline**
+
+**System Overview**
+
+This is a CDC (Community Development Council) Vouchers management system consisting of:
+
+* Backend API: Flask-based REST API (app.py)
+* Mobile App: Flet-based mobile interface (mobile\_app\_final.py)
+
+
+**Installation \& Setup**
+
+**Prerequisites**
+
+* Python 3.8 or higher
+* pip (Python package manager)
+
+
+**Required Python Packages**
+
+Install all dependencies using pip:
+
+**bashpip install flask flask-cors pandas requests flet**
+
+Individual packages:
+
+* flask - Web framework for backend API
+* flask-cors - Cross-Origin Resource Sharing support
+* pandas - Data processing for bank information
+* requests - HTTP library for API calls
+* flet(0.21.2) - Mobile app framework
+
+
+**Required Files**
+
+Ensure you have these files in your project directory:
+
+* app.py - Backend API server
+* mobile\_app\_final.py - Mobile application
+* Bankcode.csv - Bank information database (required for merchant registration)
+
+
+**Running the Application**
+
+**Step 1: Start the Backend API**
+
+Open a terminal and run:
+
+bashpython app.py
+
+The API server will start on http://localhost:8000
+
+You should see:
+
+CDC Vouchers API Server
+
+API Endpoints available at:
+
+\- http://localhost:8000/
+
+\- http://localhost:8000/api/health
+
+**Step 2: Start the Mobile App**
+
+Open a separate terminal and run:
+
+bashpython mobile\_app\_final.py
+
+The Flet mobile application will launch in a new window.
+
+
+**Using the Application**
+
+**For Households:**
+
+1. Click "Household User" on the home screen
+2. New users: Click "Sign up" to register with your NRIC and details
+3. Existing users: Enter your Household ID to login
+4. Once logged in, you can:
+
+* View your voucher balance ($2, $5, $10 denominations)
+* Claim voucher tranches
+* View transaction history
+* Check available vouchers
+
+
+
+**For Merchants:**
+
+1. Click "Merchant" on the home screen
+2. New merchants: Click "Sign up" to register with UEN and bank details
+3. Existing merchants: Enter your Merchant ID to login
+4. Once logged in, you can:
+
+* Scan/enter household ID to redeem vouchers
+* Process transactions
+* View redemption history
+
+
+
+**Data Storage**
+
+The system automatically creates a data/ folder containing:
+
+* households.csv - Household registration records
+* merchants.csv - Merchant registration records
+* transactions.csv - All transaction records
+* RedeemYYYYMMDDHH.csv - Hourly transaction logs (auto-generated)
+
+
+
+**Troubleshooting**
+
+API Connection Issues
+
+* Ensure app.py is running on port 8000
+* Check that both terminals are open
+* Verify no firewall blocking localhost:8000
+
+
+
+**Module Not Found Errors**
+
+* Reinstall packages: pip install flask flask-cors pandas requests flet
+* Ensure you're using the correct Python environment
+
+
+
+**CSV File Errors**
+
+* Make sure Bankcode.csv exists in the same directory as app.py
+* The data/ folder will be created automatically
+
+
+
+**API Endpoints (for reference)**
+
+The backend provides RESTful APIs at http://localhost:8000/api/:
+
+* GET /api/households - Get all households
+* POST /api/households/register - Register new household
+* POST /api/vouchers/claim - Claim vouchers
+* POST /api/transactions/redeem - Redeem vouchers
+* GET /api/merchants - Get all merchants
+* POST /api/merchants/register - Register merchant
+* GET /api/banks - Get bank list
+* GET /api/stats - System statistics
+
+
+
+Visit http://localhost:8000/ in your browser for full API documentation.
+
+
+
+**Notes**
+
+* Keep both terminals (API server and mobile app) running during use
+* Data persists in CSV files in the data/ folder
+* The system supports $2, $5, and $10 voucher denominations
+* Transactions are automatically logged with timestamps
